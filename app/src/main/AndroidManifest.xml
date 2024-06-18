@@ -1,0 +1,24 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    package="com.example.hotspotapp">
+
+    <application
+        android:allowBackup="true"
+        android:label="HotSpotApp"
+        android:icon="@mipmap/ic_launcher"
+        android:supportsRtl="true"
+        android:theme="@android:style/Theme.DeviceDefault">
+        <service
+            android:name="com.mrgabe.hotspot.services.HotspotService"
+            android:foregroundServiceType="location"
+            android:permission="android.permission.BIND_JOB_SERVICE"/>
+    </application>
+
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE"
+        tools:ignore="ManifestOrder" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE"/>
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.WRITE_SETTINGS"
+        tools:ignore="ProtectedPermissions" />
+</manifest>

@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">HotSpot</string>
+    <string name="enable_hotspot">Enable Hotspot</string>
+    <string name="disable_hotspot">Disable Hotspot</string>
+</resources>
