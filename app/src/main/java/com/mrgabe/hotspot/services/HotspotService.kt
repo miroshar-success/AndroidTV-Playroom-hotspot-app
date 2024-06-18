@@ -27,6 +27,18 @@ class HotspotService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         // Initialize the service and configure communication
+        intent?.let {
+            val controller = it.getStringExtra("controller")
+            val command = it.getStringExtra("command")
+            val ssid = it.getStringExtra("ssid")
+            val password = it.getStringExtra("password")
+
+            if (controller != null && command != null) {
+                val request = RequestPayload(0, controller, command, HotspotPayload(ssid ?: "", password ?: ""))
+                handleHotspotCommand(request)
+            }
+        }
+
         startWebSocket()
         return START_STICKY
     }
