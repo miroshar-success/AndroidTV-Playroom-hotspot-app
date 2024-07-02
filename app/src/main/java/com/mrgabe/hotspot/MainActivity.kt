@@ -15,6 +15,7 @@ import android.provider.Settings
 import android.util.Log
 import android.widget.Button
 import android.widget.TextView
+import androidx.annotation.RequiresApi
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.google.gson.Gson
@@ -38,6 +39,7 @@ class MainActivity : Activity() {
         }
     }
 
+    @RequiresApi(Build.VERSION_CODES.O)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -73,7 +75,9 @@ class MainActivity : Activity() {
             sendCommandToService("disable", "", "")
         }
 
-        registerReceiver(hotspotStatusReceiver, IntentFilter("com.mrgabe.hotspot.HOTSPOT_STATUS"))
+        registerReceiver(hotspotStatusReceiver, IntentFilter("com.mrgabe.hotspot.HOTSPOT_STATUS"),
+            RECEIVER_NOT_EXPORTED
+        )
     }
 
     override fun onDestroy() {
