@@ -9,15 +9,26 @@
         android:id="@+id/enableHotspotButton"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="@string/enable_hotspot"
+        android:text="Enable Hotspot"
         android:layout_centerHorizontal="true"
-        android:layout_marginTop="100dp"/>
+        android:layout_marginTop="50dp"/>
 
     <Button
         android:id="@+id/disableHotspotButton"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="@string/disable_hotspot"
+        android:text="Disable Hotspot"
+        android:layout_below="@id/enableHotspotButton"
         android:layout_centerHorizontal="true"
-        android:layout_marginTop="200dp"/>
+        android:layout_marginTop="20dp"/>
+
+    <TextView
+        android:id="@+id/txtStatus"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/disableHotspotButton"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="20dp"
+        android:text="Status: Unknown" />
+
 </RelativeLayout>

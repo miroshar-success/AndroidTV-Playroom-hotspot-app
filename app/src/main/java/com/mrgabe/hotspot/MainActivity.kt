@@ -1,26 +1,50 @@
 package com.mrgabe.hotspot
 
+import android.annotation.SuppressLint
 import android.content.pm.PackageManager
 import com.mrgabe.hotspot.services.HotspotService
-
 import android.app.Activity
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.util.Log
 import android.widget.Button
+import android.widget.TextView
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import com.google.gson.Gson
+import com.mrgabe.hotspot.services.ResponsePayload
 
 class MainActivity : Activity() {
 
     private val PERMISSIONS_REQUEST_CODE_ACCESS_FINE_LOCATION = 1
+    private lateinit var btnEnable: Button
+    private lateinit var btnDisable: Button
+    private lateinit var txtStatus: TextView
+    private val gson = Gson()
+
+    private val hotspotStatusReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            intent?.let {
+                val response = it.getStringExtra("response")
+                val responsePayload = gson.fromJson(response, ResponsePayload::class.java)
+                updateUI(responsePayload)
+            }
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+
+        btnEnable = findViewById(R.id.enableHotspotButton)
+        btnDisable = findViewById(R.id.disableHotspotButton)
+        txtStatus = findViewById(R.id.txtStatus)
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             if (!Settings.System.canWrite(this)) {
@@ -41,13 +65,20 @@ class MainActivity : Activity() {
             startHotspotService()
         }
 
-        findViewById<Button>(R.id.enableHotspotButton).setOnClickListener {
+        btnEnable.setOnClickListener {
             sendCommandToService("enable", "MyHotspot", "12345678")
         }
 
-        findViewById<Button>(R.id.disableHotspotButton).setOnClickListener {
+        btnDisable.setOnClickListener {
             sendCommandToService("disable", "", "")
         }
+
+        registerReceiver(hotspotStatusReceiver, IntentFilter("com.mrgabe.hotspot.HOTSPOT_STATUS"))
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        unregisterReceiver(hotspotStatusReceiver)
     }
 
     private fun startHotspotService() {
@@ -63,6 +94,16 @@ class MainActivity : Activity() {
             putExtra("password", password)
         }
         startService(intent)
+    }
+
+    @SuppressLint("SetTextI18n")
+    private fun updateUI(response: ResponsePayload) {
+        val status = response.response.status
+        if (status != null) {
+            txtStatus.text = "Hotspot is ${if (status.active) "active" else "inactive"}\nSSID: ${status.ssid}\nPassword: ${status.password}"
+        } else {
+            txtStatus.text = "Error: ${response.response.message}"
+        }
     }
 
     override fun onRequestPermissionsResult(

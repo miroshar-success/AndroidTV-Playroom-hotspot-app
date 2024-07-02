@@ -26,7 +26,6 @@ class HotspotService : Service() {
     private val client = OkHttpClient()
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        // Initialize the service and configure communication
         intent?.let {
             val controller = it.getStringExtra("controller")
             val command = it.getStringExtra("command")
@@ -51,7 +50,7 @@ class HotspotService : Service() {
             }
 
             override fun onMessage(webSocket: WebSocket, text: String) {
-                handleWebSocketMessage(text)
+                handleWebSocketMessage(text, webSocket)
             }
 
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
@@ -63,25 +62,42 @@ class HotspotService : Service() {
         client.dispatcher.executorService.shutdown()
     }
 
-    private fun handleWebSocketMessage(message: String) {
+    private fun handleWebSocketMessage(message: String, webSocket: WebSocket) {
         val request = gson.fromJson(message, RequestPayload::class.java)
 
         when (request.controller) {
-            "hotspot" -> handleHotspotCommand(request)
+            "hotspot" -> handleHotspotCommand(request, webSocket)
             else -> Log.e("WebSocket", "Unknown controller: ${request.controller}")
         }
     }
 
-    private fun handleHotspotCommand(request: RequestPayload) {
-        when (request.command) {
-            "enable" -> enableHotspot(request.payload.ssid, request.payload.password)
-            "disable" -> disableHotspot()
-            else -> Log.e("HotspotService", "Unknown command: ${request.command}")
+    private fun handleHotspotCommand(request: RequestPayload, webSocket: WebSocket? = null) {
+        val responsePayload = when (request.command) {
+            "enable" -> {
+                val result = enableHotspot(request.payload.ssid, request.payload.password)
+                ResponsePayload(request.cookie, Response(result, !result, if (result) null else "Failed to enable Hotspot"))
+            }
+            "disable" -> {
+                val result = disableHotspot()
+                ResponsePayload(request.cookie, Response(result, !result, if (result) null else "Failed to disable Hotspot"))
+            }
+            "status" -> {
+                val status = getHotspotStatus()
+                ResponsePayload(request.cookie, Response(true, false, null, status))
+            }
+            else -> {
+                Log.e("HotspotService", "Unknown command: ${request.command}")
+                ResponsePayload(request.cookie, Response(false, true, "Unknown command"))
+            }
         }
+        sendBroadcast(Intent("com.mrgabe.hotspot.HOTSPOT_STATUS").apply {
+            putExtra("response", gson.toJson(responsePayload))
+        })
+        webSocket?.send(gson.toJson(responsePayload))
     }
 
-    private fun enableHotspot(ssid: String, password: String) {
-        try {
+    private fun enableHotspot(ssid: String, password: String): Boolean {
+        return try {
             val wifiConfig = WifiConfiguration().apply {
                 SSID = ssid
                 preSharedKey = password
@@ -90,21 +106,38 @@ class HotspotService : Service() {
 
             val method: Method = wifiManager.javaClass.getDeclaredMethod("setWifiApEnabled", WifiConfiguration::class.java, Boolean::class.javaPrimitiveType)
             method.isAccessible = true
-            val result = method.invoke(wifiManager, wifiConfig, true) as Boolean
-            Log.d("HotspotService", "Hotspot enabled: $result")
+            method.invoke(wifiManager, wifiConfig, true) as Boolean
         } catch (e: Exception) {
             Log.e("HotspotService", "Error enabling hotspot: ${e.message}")
+            false
         }
     }
 
-    private fun disableHotspot() {
-        try {
+    private fun disableHotspot(): Boolean {
+        return try {
             val method: Method = wifiManager.javaClass.getDeclaredMethod("setWifiApEnabled", WifiConfiguration::class.java, Boolean::class.javaPrimitiveType)
             method.isAccessible = true
-            val result = method.invoke(wifiManager, null, false) as Boolean
-            Log.d("HotspotService", "Hotspot disabled: $result")
+            method.invoke(wifiManager, null, false) as Boolean
         } catch (e: Exception) {
             Log.e("HotspotService", "Error disabling hotspot: ${e.message}")
+            false
+        }
+    }
+
+    private fun getHotspotStatus(): HotspotStatus {
+        return try {
+            val method: Method = wifiManager.javaClass.getDeclaredMethod("getWifiApConfiguration")
+            method.isAccessible = true
+            val wifiConfig = method.invoke(wifiManager) as WifiConfiguration
+
+            val methodStatus: Method = wifiManager.javaClass.getDeclaredMethod("isWifiApEnabled")
+            methodStatus.isAccessible = true
+            val isEnabled = methodStatus.invoke(wifiManager) as Boolean
+
+            HotspotStatus(isEnabled, wifiConfig.SSID, wifiConfig.preSharedKey)
+        } catch (e: Exception) {
+            Log.e("HotspotService", "Error getting hotspot status: ${e.message}")
+            HotspotStatus(false, "", "")
         }
     }
 
@@ -121,6 +154,24 @@ data class RequestPayload(
 )
 
 data class HotspotPayload(
+    val ssid: String,
+    val password: String
+)
+
+data class ResponsePayload(
+    val cookie: Int,
+    val response: com.mrgabe.hotspot.services.Response
+)
+
+data class Response(
+    val result: Boolean,
+    val error: Boolean,
+    val message: String?,
+    val status: HotspotStatus? = null
+)
+
+data class HotspotStatus(
+    val active: Boolean,
     val ssid: String,
     val password: String
 )
