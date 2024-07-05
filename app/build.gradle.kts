@@ -35,6 +35,7 @@ android {
 }
 
 dependencies {
+    implementation(libs.java.websocket)
     implementation(libs.androidx.core.ktx)
     implementation(libs.okhttp)
     implementation(libs.gson)

@@ -76,7 +76,7 @@ class MainActivity : Activity() {
         }
 
         registerReceiver(hotspotStatusReceiver, IntentFilter("com.mrgabe.hotspot.HOTSPOT_STATUS"),
-            RECEIVER_NOT_EXPORTED
+            RECEIVER_EXPORTED
         )
     }
 
@@ -110,11 +110,7 @@ class MainActivity : Activity() {
         }
     }
 
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<String>,
-        grantResults: IntArray
-    ) {
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         when (requestCode) {
             PERMISSIONS_REQUEST_CODE_ACCESS_FINE_LOCATION -> {

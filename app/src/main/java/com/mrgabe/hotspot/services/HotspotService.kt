@@ -9,12 +9,9 @@ import android.net.wifi.WifiManager
 import android.os.IBinder
 import android.util.Log
 import com.google.gson.Gson
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import okhttp3.Response
-import okhttp3.WebSocket
-import okhttp3.WebSocketListener
 import java.lang.reflect.Method
+import java.net.InetSocketAddress
+import org.java_websocket.WebSocket
 
 class HotspotService : Service() {
 
@@ -23,64 +20,42 @@ class HotspotService : Service() {
     }
 
     private val gson = Gson()
-    private val client = OkHttpClient()
+    private lateinit var webSocketServer: HotspotWebSocketServer
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         intent?.let {
-            val controller = it.getStringExtra("controller")
             val command = it.getStringExtra("command")
             val ssid = it.getStringExtra("ssid")
             val password = it.getStringExtra("password")
 
-            if (controller != null && command != null) {
-                val request = RequestPayload(0, controller, command, HotspotPayload(ssid ?: "", password ?: ""))
-                handleHotspotCommand(request)
+            if (command != null) {
+                when (command) {
+                    "enable" -> enableHotspot(ssid ?: "", password ?: "")
+                    "disable" -> disableHotspot()
+                }
             }
         }
 
-        startWebSocket()
+        startWebSocketServer()
         return START_STICKY
     }
 
-    private fun startWebSocket() {
-        val request = Request.Builder().url("ws://yourserveraddress").build()
-        val webSocketListener = object : WebSocketListener() {
-            override fun onOpen(webSocket: WebSocket, response: Response) {
-                Log.d("WebSocket", "Connection opened")
-            }
-
-            override fun onMessage(webSocket: WebSocket, text: String) {
-                handleWebSocketMessage(text, webSocket)
-            }
-
-            override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-                Log.e("WebSocket", "Error: ${t.message}")
-            }
-        }
-
-        client.newWebSocket(request, webSocketListener)
-        client.dispatcher.executorService.shutdown()
+    private fun startWebSocketServer() {
+        val address = InetSocketAddress(8080)
+        webSocketServer = HotspotWebSocketServer(address, this)
+        webSocketServer.start()
+        Log.d("WebSocketServer", "Server started on port 8080")
     }
 
-    private fun handleWebSocketMessage(message: String, webSocket: WebSocket) {
-        val request = gson.fromJson(message, RequestPayload::class.java)
-
+    fun handleWebSocketMessage(request: RequestPayload, webSocket: WebSocket) {
         when (request.controller) {
             "hotspot" -> handleHotspotCommand(request, webSocket)
-            else -> Log.e("WebSocket", "Unknown controller: ${request.controller}")
+            else -> Log.e("WebSocketServer", "Unknown controller: ${request.controller}")
         }
     }
 
-    private fun handleHotspotCommand(request: RequestPayload, webSocket: WebSocket? = null) {
+    private fun handleHotspotCommand(request: RequestPayload, webSocket: WebSocket) {
         val responsePayload = when (request.command) {
-            "enable" -> {
-                val result = enableHotspot(request.payload.ssid, request.payload.password)
-                ResponsePayload(request.cookie, Response(result, !result, if (result) null else "Failed to enable Hotspot"))
-            }
-            "disable" -> {
-                val result = disableHotspot()
-                ResponsePayload(request.cookie, Response(result, !result, if (result) null else "Failed to disable Hotspot"))
-            }
             "status" -> {
                 val status = getHotspotStatus()
                 ResponsePayload(request.cookie, Response(true, false, null, status))
@@ -90,10 +65,7 @@ class HotspotService : Service() {
                 ResponsePayload(request.cookie, Response(false, true, "Unknown command"))
             }
         }
-        sendBroadcast(Intent("com.mrgabe.hotspot.HOTSPOT_STATUS").apply {
-            putExtra("response", gson.toJson(responsePayload))
-        })
-        webSocket?.send(gson.toJson(responsePayload))
+        webSocket.send(gson.toJson(responsePayload))
     }
 
     private fun enableHotspot(ssid: String, password: String): Boolean {
@@ -160,7 +132,7 @@ data class HotspotPayload(
 
 data class ResponsePayload(
     val cookie: Int,
-    val response: com.mrgabe.hotspot.services.Response
+    val response: Response
 )
 
 data class Response(
